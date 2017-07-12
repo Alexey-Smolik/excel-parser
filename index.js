@@ -13,56 +13,65 @@ const sequelize = new Sequelize('postgres://postgres:11111@localhost:5432/mvd', 
 app.use(express.static("public"));
 app.use(bodyParser.urlencoded({ extended: true }, {defer: true}));
 
-const result_arr = [];
-const promise_arr = [];
 
 app.post('/upload', function(req, res){
-   var form = new formidable.IncomingForm();
+   const form = new formidable.IncomingForm();
     form.keepExtensions = true;
     form.parse(req, function(err, fields, files){
-        var workbook = XLSX.readFile(files.fileUploaded.path);
-        var list = workbook.Sheets["Лист1"];
-        parseData(list);
-        Promise.all(promise_arr).then(result => {
-            var error_num = 0, success_num = 0;
-            for(let i =0; i<=result_arr; i++){
-                res.write(result_arr[i].type + ': ' + result_arr[i].text);
+        const workbook = XLSX.readFile(files.fileUploaded.path);
+        const list = workbook.Sheets["Лист1"];
 
-                if(result_arr[i].type == 'success')
+        const promises = [], resultData = [];
+        parseData(list, promises, resultData);
+
+        Promise.all(promises).then(result => {
+            let error_num = 0, success_num = 0;
+            res.writeHead(200, {"Content-Type": "text/html; charset=utf-8"});
+            res.write('<table border="1px" width="50%"><tr><td align="center">id</td><td align="center">fullName</td><td align="center">Error text</td></tr>');
+            for(let i =0; i< resultData.length; i++){
+                if(resultData[i].type == 'SUCCESS')
                     success_num++;
-                else
+                else{
                     error_num++;
+                    res.write('<tr><td>' + resultData[i].id + '</td><td>' + resultData[i].fullName + '</td><td>' + resultData[i].text + '</td></tr>');
+                }
             }
+            res.write('</table></br></br></br>');
 
-            res.write('Number of successful rows: ' + success_num);
+            res.write('Total number of rows: ' + resultData.length + '</br>');
+            res.write('Number of successful rows: ' + success_num + '</br>');
             res.write('Number of error rows: ' + error_num);
             res.end();
         })
     });
 });
 
-function parseData(list) {
-    for (let row = 3; row <= 4; row++){
-        promise_arr.push(sequelize.query('INSERT into policemans (full_name, post, email, work_phone, mobile_phone, location, work_territory, image_url, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-            { bind: [list['B' + row].h + ' ' + list['C' + row].h + ' ' + list['D' + row].h,
-                list['G' + row].h,
-                list['I' + row].h,
-                list['J' + row].h,
-                list['K' + row].h,
-                list['H' + row].h,
-                list['L' + row].h,
-                list['M' + row].h,
-                new Date(),
-                new Date()]})
+function parseData(sourse, promiseArr, resultArr) {
+    for (let row = 3;; row++){
+        if(!sourse['A' + row])
+            break;
+        else{
+            promiseArr.push(sequelize.query('INSERT into policemans (full_name, post, email, work_phone, mobile_phone, location, work_territory, image_url, created_at, updated_at) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+                { bind: [sourse['B' + row].h + ' ' + sourse['C' + row].h + ' ' + sourse['D' + row].h,
+                    sourse['G' + row].h,
+                    sourse['I' + row].h,
+                    sourse['J' + row].h,
+                    sourse['K' + row].h,
+                    sourse['H' + row].h,
+                    sourse['L' + row].h,
+                    sourse['M' + row].h,
+                    new Date(),
+                    new Date()]})
                 .then(result => {
-                    result_arr.push({type: 'SUCCESS', text: "Line " + row + " has been added successfully"});
+                    resultArr.push({type: 'SUCCESS', id: sourse['A' + row].h, fullName: sourse['B' + row].h + ' ' + sourse['C' + row].h + ' ' + sourse['D' + row].h, text: "Line " + row + " has been added successfully"});
                 })
                 .catch(err => {
-                    result_arr.push({type: 'ERROR', text: "Line " + row + ": " + err.message});
+                    resultArr.push({type: 'ERROR', id: sourse['A' + row].h, fullName: sourse['B' + row].h + ' ' + sourse['C' + row].h + ' ' + sourse['D' + row].h, text: "Line " + row + ": " + err.message});
                 })
-        );
+            );
+        }
     }
-};
+}
 
 app.listen(3000, function () {
     console.log('listening on port 3000');
