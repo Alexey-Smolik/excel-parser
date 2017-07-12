@@ -17,7 +17,9 @@
   },
   "homepage": "https://github.com/Leshutic/excel-parser#readme",
   "dependencies": {
+    "body-parser": "^1.17.2",
     "express": "^4.15.3",
+    "formidable": "^1.1.1",
     "msexcel-builder": "0.0.2",
     "pg": "^6.4.0",
     "sequelize": "^4.3.0",
